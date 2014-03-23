@@ -36,7 +36,7 @@ function onPreload() {
 	traceGroup = new Phaser.Group(game);
 	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
-	var loading = game.add.text(game.width / 2, game.height / 2, 'Loading...', { fill : '#fff', align: "center" });
+	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
 	loading.anchor.setTo(0.5,0.5);
 }
 //******************************************************************************************************
@@ -57,34 +57,19 @@ function onUpdate()	{
 //******************************************************************************************************
 function create() {
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
-	levels = 1;
+	levels = 10;
 	level = rn(0,levels - 1);
-	trace("level " + level)
 	maps = [];
-	trace('flag 1');
 	var tMap;
 	while(maps.length < levels){
-		trace("map loop")
 		tMap = initMap();
-		trace("tMap.length " + tMap.length)
 		if(tMap.length > 0)maps.push(tMap)
 	}
-	trace("tMap[20][20] " + tMap[20][20])
-	trace("out of loop")
-	trace("maps.length " + maps.length)
-	trace("maps[0] " + maps[0])
-	trace("level " + level);
-	//trace("maps[level]" + maps[level]);
 	currentMap = maps[level];
-	//currentMap = maps.pop();
-	trace("flag 3")
-	trace("cMap[20][20] " + currentMap[20][20])
 	screen = initTiles(true);
-	trace('flag 4');
 	actorDisplay = [];
 	
 	initActors(); // initialize actors
-	trace("player " + player);
 	initItems();
 	drawItems();
 	
@@ -96,11 +81,8 @@ function create() {
 	playerCameraOffset = game.add.sprite(playerDisplay.x + 32,playerDisplay.y, "dungeonSheet", 11);
 	playerCameraOffset.visible = false;
 	game.camera.follow(playerCameraOffset);
-	trace('flag 5');
-	
 	positionObjects();
 	drawMap();
-	trace('flag 6');
 }
 //******************************************************************************************************
 //******************************************************************************************************
@@ -246,15 +228,15 @@ function initMap() {
 		trace("returning false")
 		return [];
 	}
-	//trace('checkSurrounding');	
-	//trace("map, " + map.length);
-	/*for(var y in map){
+	trace('checkSurrounding');	
+	trace("map, " + map.length);
+	for(var y in map){
 		//trace("y loop")
 		for(var x in map[y]){
 			//trace("x loop")
 			if(!checkSurrounding(map,y,x))map[y][x] = -1;
 		}
-	}*/
+	}
 	trace('returning map');
 	return map;
 }
@@ -332,12 +314,18 @@ function initItems(){
 		item = {x:0, y:0, type:"GRASS", frame:13};
 		itemList.push(item);
 	}
+	// Add a ladder going down, if level != 1, add ladder going up
+	itemList.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
+	if(level > 1) itemList.push({x:0,y:0, type:"LADDER_UP", frame:2});
 	
 	var completeItems = itemList.length;
+	var usedSquares = [];
 	while(completeItems > 0){
 		var tX = rn(0, COLS - 1);
 		var tY = rn(0, ROWS - 1);
-		if(currentMap[tY][tX] <= 0)continue;
+		var txtLoc = String(tX) + "_" + String(tY);
+		if(currentMap[tY][tX] <= 0 || usedSquares.indexOf(txtLoc) >= 0)continue;
+		usedSquares.push(txtLoc);
 		item = itemList[completeItems - 1];
 		item.x = tX;
 		item.y = tY;
