@@ -17,6 +17,7 @@ var itemList;
 var itemDisplay;
 var roomArray; // Holds the information for the rooms on the map
 var topDisplay;
+var topDisplayList;
 var livingEnemies;
 var actorMap; // points to each actor in its position, for quick searching
 var itemMap;
@@ -56,6 +57,8 @@ function onUpdate()	{
 //******************************************************************************************************
 //******************************************************************************************************
 function create() {
+	// console.log("poop!"); // This is how you console log son!
+	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
 	levels = 10;
 	level = rn(0,levels - 1);
@@ -63,26 +66,46 @@ function create() {
 	var tMap;
 	while(maps.length < levels){
 		tMap = initMap();
-		if(tMap.length > 0)maps.push(tMap)
+		if(tMap.length > 0){
+			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null});
+		}
 	}
-	currentMap = maps[level];
-	screen = initTiles(true);
-	actorDisplay = [];
-	
-	initActors(); // initialize actors
-	initItems();
-	drawItems();
-	
-	drawActors(); // draw actors into the level
-	overlay = initTiles(false);
 	drawTopBar(); // draw UI top bar
-	
-	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
+	buildMap();
+}
+//******************************************************************************************************
+//******************************************************************************************************
+function buildMap(){
+	var mapObj = maps[level];
+	currentMap = mapObj.MAP;
+	mapObj.SCREEN != null ? screen = mapObj.SCREEN : screen = initTiles(true);
+	if(mapObj.ACTOR_LIST != null){
+		actorList = mapObj.ACTOR_LIST;
+		actorMap = mapObj.ACTOR_MAP;
+	}else{
+		initActors();
+	}
+	if(mapObj.ITEM_LIST != null){
+		itemList = mapObj.ITEM_LIST;
+		itemMap = mapObj.ITEM_MAP;
+	}else{
+		initItems();
+	}
+
+	drawItems();
+	drawActors(); // draw actors into the level
+
+	mapObj.OVERLAY != null ? overlay = mapObj.OVERLAY : overlay = initTiles(false);
+
 	playerCameraOffset = game.add.sprite(playerDisplay.x + 32,playerDisplay.y, "dungeonSheet", 11);
 	playerCameraOffset.visible = false;
 	game.camera.follow(playerCameraOffset);
 	positionObjects();
 	drawMap();
+
+	for (var a in topDisplayList) {
+		if(topDisplayList[a] != null)topDisplayList[a].bringToTop();
+	}
 }
 //******************************************************************************************************
 //******************************************************************************************************
@@ -336,6 +359,7 @@ function initItems(){
 //******************************************************************************************************
 //******************************************************************************************************
 function drawActors() {
+	actorDisplay = [];
 	for (var a in actorList) {
 		if (actorList[a] != null && actorList[a].hp > 0) {
 			var tileType = a == 0 ? 1 : 10;
@@ -360,24 +384,29 @@ function drawItems() {
 function drawTopBar() {
 	var startX = vCOLS * TILESIZE;
 	topDisplay = [];
+	topDisplayList = [];
 	for(var i = 0; i < vCOLS; i++){
 		var bgTile = game.add.sprite(i * TILESIZE,0,"dungeonSheet",0);
 		bgTile.fixedToCamera = true;
 		bgTile.cameraOffset = new Phaser.Point(i * TILESIZE,0);
+		topDisplayList.push(bgTile);
 	}
 	// Heart containers
-	for(var a = 1; a <= actorList[0].hp; a++){
+	//for(var a = 1; a <= actorList[0].hp; a++){
+	for(var a = 1; a <= 3; a++){
 		var item = game.add.sprite(0, 0, "dungeonSheet",5);
 		item.fixedToCamera = true;
 		item.cameraOffset = new Phaser.Point(a * TILESIZE,0);
 		item.FULL = true;
 		topDisplay.unshift(item);
+		topDisplayList.push(item);
 	}
 	// Man icon
 	item = game.add.sprite(0, 0, "dungeonSheet",4);
 	item.fixedToCamera = true;
 	item.cameraOffset = new Phaser.Point(0,0);
 	topDisplay.unshift(item);
+	topDisplayList.push(item);
 	
 	item = game.add.sprite(0,0,"dungeonSheet",12);
 	item.fixedToCamera = true;
@@ -389,6 +418,7 @@ function drawTopBar() {
 		item.fixedToCamera = true;
 		item.cameraOffset = new Phaser.Point(730 + (i * 30),12);
 		scoreArray.push(item);
+		topDisplayList.push(item);
 	}
 }
 //******************************************************************************************************
