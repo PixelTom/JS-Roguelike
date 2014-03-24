@@ -6,26 +6,21 @@ var currentMap; // the structure of the map
 var maps; // Array of map arrays
 var level; // What level the player is on
 var levels; // How many levels all up
-var screen;	// the ascii display, as a 2d array of characters
-var overlay; // Fog of war overlay
+var mapObj;
 var player; // a list of all actors, 0 is the player
 var playerDisplay;
 var playerCameraOffset;
-var actorList;
 var actorDisplay;	
-var itemList;
 var itemDisplay;
 var roomArray; // Holds the information for the rooms on the map
 var topDisplay;
 var topDisplayList;
 var livingEnemies;
-var actorMap; // points to each actor in its position, for quick searching
-var itemMap;
 var npcPhase = false;
 var scoreArray;
 var score = 0;
 var aStarGraph;
-var traceGroup; var traceY = 0; // Trace variables
+var ladderFlag = false;
 
 // initialize phaser, call create() once done
 var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phaser.AUTO, null, {
@@ -34,7 +29,6 @@ var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phas
 //******************************************************************************************************
 //******************************************************************************************************
 function onPreload() {
-	traceGroup = new Phaser.Group(game);
 	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
 	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
@@ -44,13 +38,17 @@ function onPreload() {
 //******************************************************************************************************
 function onUpdate()	{	
 	if(npcPhase){
-		for (var a = 1; a < actorList.length; a++) {
-			var enemy = actorList[a];
+		for (var a = 1; a < mapObj.ACTOR_LIST.length; a++) {
+			var enemy = mapObj.ACTOR_LIST[a];
 			if(enemy)aiAct(enemy);
 		}
-		checkItemHit();
-		positionObjects();
-		drawMap();
+		if(checkItemHit()){
+			clearMap();
+			buildMap();
+		}else{
+			positionObjects();
+			drawMap();
+		}
 		npcPhase = false;
 	}
 }
@@ -60,8 +58,8 @@ function create() {
 	// console.log("poop!"); // This is how you console log son!
 	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
-	levels = 10;
-	level = rn(0,levels - 1);
+	levels = 2;
+	level = 0;
 	maps = [];
 	var tMap;
 	while(maps.length < levels){
@@ -72,34 +70,37 @@ function create() {
 	}
 	drawTopBar(); // draw UI top bar
 	buildMap();
-}
-//******************************************************************************************************
-//******************************************************************************************************
-function buildMap(){
-	var mapObj = maps[level];
-	currentMap = mapObj.MAP;
-	mapObj.SCREEN != null ? screen = mapObj.SCREEN : screen = initTiles(true);
-	if(mapObj.ACTOR_LIST != null){
-		actorList = mapObj.ACTOR_LIST;
-		actorMap = mapObj.ACTOR_MAP;
-	}else{
-		initActors();
-	}
-	if(mapObj.ITEM_LIST != null){
-		itemList = mapObj.ITEM_LIST;
-		itemMap = mapObj.ITEM_MAP;
-	}else{
-		initItems();
-	}
-
-	drawItems();
-	drawActors(); // draw actors into the level
-
-	mapObj.OVERLAY != null ? overlay = mapObj.OVERLAY : overlay = initTiles(false);
 
 	playerCameraOffset = game.add.sprite(playerDisplay.x + 32,playerDisplay.y, "dungeonSheet", 11);
 	playerCameraOffset.visible = false;
 	game.camera.follow(playerCameraOffset);
+}
+//******************************************************************************************************
+//******************************************************************************************************
+function clearMap(){
+	var tA = [];
+	for(var a in mapObj.ITEM_LIST)if(mapObj.ITEM_LIST[a] != null)tA.push(mapObj.ITEM_LIST[a]);
+	mapObj.ITEM_LIST = tA;
+	tA = [];
+	for(var a in mapObj.ACTOR_LIST)if(mapObj.ACTOR_LIST[a] != null)tA.push(mapObj.ACTOR_LIST[a]);
+	mapObj.ACTOR_LIST = tA;
+}
+//******************************************************************************************************
+//******************************************************************************************************
+function buildMap(){
+	mapObj = maps[level];
+	currentMap = mapObj.MAP;
+
+	if(mapObj.SCREEN == null)mapObj.SCREEN = initTiles(true);
+	if(mapObj.ACTOR_LIST == null)initActors();
+	if(mapObj.ITEM_LIST == null)initItems();
+
+	drawItems();
+	drawActors(); // draw actors into the level
+
+	//mapObj.OVERLAY != null ? overlay = mapObj.OVERLAY : overlay = initTiles(false);
+	if(mapObj.OVERLAY == null)mapObj.OVERLAY = initTiles(false);
+
 	positionObjects();
 	drawMap();
 
@@ -134,8 +135,8 @@ function initCell(chr, x, y) {
 function drawMap(){
 	for (var y = 0; y < ROWS; y++) {
 		for (var x = 0; x < COLS; x++){
-			var cell = screen[y][x];
-			var overCell = overlay[y][x];
+			var cell = mapObj.SCREEN[y][x];
+			var overCell = mapObj.OVERLAY[y][x];
 			// Is it in range of the player?
 			var distance = Math.sqrt(Math.pow(x - player.x, 2) + Math.pow(y - player.y, 2))
 			if(distance <= 3){
@@ -154,7 +155,6 @@ function drawMap(){
 //******************************************************************************************************
 //******************************************************************************************************
 function initMap() {
-	//trace('flag map 1');
 	var map = [];
 	for (var y = 0; y < ROWS; y++) {
 		var newRow = [];
@@ -163,7 +163,6 @@ function initMap() {
 		}
 		map.push(newRow);
 	}
-	//trace('flag map 2');
 	roomArray = [];
 	var roomCount = 0;
 	while(roomCount < 100){
@@ -176,7 +175,6 @@ function initMap() {
 			roomCount++;
 		}
 	}
-	//trace('flag map 3');
 	var madeConnections = [];
 	
 	for(var i = 0; i < roomArray.length; i++){
@@ -231,7 +229,6 @@ function initMap() {
 			}
 		}
 	} 
-	//trace('flag map 4');
 	var success = true;
 	for(var i = 0; i < roomArray.length - 1; i++){
 		aStarGraph = new Graph(map);
@@ -248,25 +245,18 @@ function initMap() {
 	}
 	
 	if(!success){
-		trace("returning false")
 		return [];
 	}
-	trace('checkSurrounding');	
-	trace("map, " + map.length);
 	for(var y in map){
-		//trace("y loop")
 		for(var x in map[y]){
-			//trace("x loop")
 			if(!checkSurrounding(map,y,x))map[y][x] = -1;
 		}
 	}
-	trace('returning map');
 	return map;
 }
 //******************************************************************************************************
 //******************************************************************************************************
 function checkSurrounding(map,y, x){
-	trace("check called");
 	y = parseInt(y);
 	x = parseInt(x);
 	var checkYs = [y];
@@ -302,46 +292,46 @@ function rn(min, max) {
 //******************************************************************************************************
 function initActors() {
 	// create actors at random locations
-	actorList = [];
-	actorMap = {};
+	mapObj.ACTOR_LIST = [];
+	mapObj.ACTOR_MAP = {};
 	for (var e = 0; e < ACTORS; e++) {
 		var actor = {x: 0,y: 0,hp: e == 0 ? 3 : 1}; // create new actor
 		do { // pick a random position that is both a floor and not occupied
 			actor.y = randomInt(ROWS);
 			actor.x = randomInt(COLS);
-		} while (currentMap[actor.y][actor.x] <= 0 || actorMap[actor.y + "_" + actor.x] != null);
+		} while (currentMap[actor.y][actor.x] <= 0 || mapObj.ACTOR_MAP[actor.y + "_" + actor.x] != null);
 		// add references to the actor to the actors list & map
-		actorMap[actor.y + "_" + actor.x] = actor;
-		actorList.push(actor);
+		mapObj.ACTOR_MAP[actor.y + "_" + actor.x] = actor;
+		mapObj.ACTOR_LIST.push(actor);
 	}
-	player = actorList[0]; // the player is the first actor in the list
+	player = mapObj.ACTOR_LIST[0]; // the player is the first actor in the list
 	livingEnemies = ACTORS - 1;
 }
 //******************************************************************************************************
 //******************************************************************************************************
 function initItems(){
 	// One item per room, currently scattered randomly around the map, need to put 1 item per room
-	itemList = [];
-	itemMap = {};
+	mapObj.ITEM_LIST = [];
+	mapObj.ITEM_MAP = {};
 	for(var e = 0; e < roomArray.length; e++){
 		var item = {x:0, y:0, type:"COIN", frame:12};
-		itemList.push(item);
+		mapObj.ITEM_LIST.push(item);
 	}
 	// add a fifth of the rooms as mushrooms
 	for(e = 0; e < roomArray.length / 5; e++){
 		item = {x:0, y:0, type:"MUSHROOM", frame:14};
-		itemList.push(item);
+		mapObj.ITEM_LIST.push(item);
 	}
 	// add lots of grass
 	for(e = 0; e < roomArray.length * 2; e++){
 		item = {x:0, y:0, type:"GRASS", frame:13};
-		itemList.push(item);
+		mapObj.ITEM_LIST.push(item);
 	}
 	// Add a ladder going down, if level != 1, add ladder going up
-	itemList.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
-	if(level > 1) itemList.push({x:0,y:0, type:"LADDER_UP", frame:2});
+	mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
+	if(level > 1) mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_UP", frame:2});
 	
-	var completeItems = itemList.length;
+	var completeItems = mapObj.ITEM_LIST.length;
 	var usedSquares = [];
 	while(completeItems > 0){
 		var tX = rn(0, COLS - 1);
@@ -349,10 +339,10 @@ function initItems(){
 		var txtLoc = String(tX) + "_" + String(tY);
 		if(currentMap[tY][tX] <= 0 || usedSquares.indexOf(txtLoc) >= 0)continue;
 		usedSquares.push(txtLoc);
-		item = itemList[completeItems - 1];
+		item = mapObj.ITEM_LIST[completeItems - 1];
 		item.x = tX;
 		item.y = tY;
-		itemMap[item.y + "_" + item.x] = item;
+		mapObj.ITEM_MAP[item.y + "_" + item.x] = item;
 		completeItems--;
 	}
 }
@@ -360,10 +350,10 @@ function initItems(){
 //******************************************************************************************************
 function drawActors() {
 	actorDisplay = [];
-	for (var a in actorList) {
-		if (actorList[a] != null && actorList[a].hp > 0) {
+	for (var a in mapObj.ACTOR_LIST) {
+		if (mapObj.ACTOR_LIST[a] != null && mapObj.ACTOR_LIST[a].hp > 0) {
 			var tileType = a == 0 ? 1 : 10;
-			var playerSprite = game.add.sprite(TILESIZE * actorList[a].x, (TILESIZE * actorList[a].y) + TILESIZE, "dungeonSheet", tileType);
+			var playerSprite = game.add.sprite(TILESIZE * mapObj.ACTOR_LIST[a].x, (TILESIZE * mapObj.ACTOR_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
 			actorDisplay.push(playerSprite);
 		}
 	}
@@ -373,10 +363,10 @@ function drawActors() {
 //******************************************************************************************************
 function drawItems() {
 	itemDisplay = [];
-	for (var a in itemList) {
-		if (itemList[a] != null) {
-			var tileType = itemList[a].frame;
-			var playerSprite = game.add.sprite(TILESIZE * itemList[a].x, (TILESIZE * itemList[a].y) + TILESIZE, "dungeonSheet", tileType);
+	for (var a in mapObj.ITEM_LIST) {
+		if (mapObj.ITEM_LIST[a] != null) {
+			var tileType = mapObj.ITEM_LIST[a].frame;
+			var playerSprite = game.add.sprite(TILESIZE * mapObj.ITEM_LIST[a].x, (TILESIZE * mapObj.ITEM_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
 			itemDisplay.push(playerSprite);
 }}}
 //******************************************************************************************************
@@ -424,24 +414,26 @@ function drawTopBar() {
 //******************************************************************************************************
 //******************************************************************************************************
 function positionObjects() {
-	for(var a in itemList){
-		if(itemList[a] == null && itemDisplay[a] != null){
+	for(var a in mapObj.ITEM_LIST){
+		if(mapObj.ITEM_LIST[a] == null && itemDisplay[a] != null){
 			itemDisplay[a].kill();
 		}else{
-			itemDisplay[a].x = itemList[a].x * TILESIZE;
-			itemDisplay[a].y = (itemList[a].y * TILESIZE) + TILESIZE;
+			itemDisplay[a].x = mapObj.ITEM_LIST[a].x * TILESIZE;
+			itemDisplay[a].y = (mapObj.ITEM_LIST[a].y * TILESIZE) + TILESIZE;
 		}
 	}
-	for(var a in actorList){
-		if(actorList[a] == null && actorDisplay[a] != null){
+	for(var a in mapObj.ACTOR_LIST){
+		if(mapObj.ACTOR_LIST[a] == null && actorDisplay[a] != null){
 			actorDisplay[a].kill();
 		}else{
-			actorDisplay[a].x = actorList[a].x * TILESIZE;
-			actorDisplay[a].y = (actorList[a].y * TILESIZE) + TILESIZE;
+			actorDisplay[a].x = mapObj.ACTOR_LIST[a].x * TILESIZE;
+			actorDisplay[a].y = (mapObj.ACTOR_LIST[a].y * TILESIZE) + TILESIZE;
 		}
 	}
-	playerCameraOffset.x = playerDisplay.x + 32;
-	playerCameraOffset.y = playerDisplay.y;
+	if(playerDisplay != null && playerCameraOffset != null){
+		playerCameraOffset.x = playerDisplay.x + 32;
+		playerCameraOffset.y = playerDisplay.y;
+	}
 }
 //******************************************************************************************************
 //******************************************************************************************************
@@ -458,10 +450,10 @@ function moveTo(actor, dir) { // check if actor can move in the given direction
 	if (!canGo(actor,dir)) 
 		return false;
 	var newKey = (actor.y + dir.y) +'_' + (actor.x + dir.x); // moves actor to the new location
-	if (actorMap[newKey] != null) { // if the destination tile has an actor in it 
-		if(actorMap[newKey] != player && actor != player)return true;
+	if (mapObj.ACTOR_MAP[newKey] != null) { // if the destination tile has an actor in it 
+		if(mapObj.ACTOR_MAP[newKey] != player && actor != player)return true;
 		//decrement hitpoints of the actor at the destination tile
-		var victim = actorMap[newKey];
+		var victim = mapObj.ACTOR_MAP[newKey];
 		hitActor(actor, victim, dir, newKey);
 	} else {
 		confirmMove(actor, dir);
@@ -489,8 +481,8 @@ function hitActor(attacker, victim, dir, newKey) {
 	}	}	}
 	// if it's dead remove its reference 
 	if (victim.hp == 0) {
-		actorMap[newKey]= null;
-		actorList[actorList.indexOf(victim)]=null;
+		mapObj.ACTOR_MAP[newKey]= null;
+		mapObj.ACTOR_LIST[mapObj.ACTOR_LIST.indexOf(victim)]=null;
 		if(victim!=player) {
 			livingEnemies--;
 			if (livingEnemies == 0) {
@@ -504,12 +496,12 @@ function hitActor(attacker, victim, dir, newKey) {
 //******************************************************************************************************
 function confirmMove(actor, dir){
 	// remove reference to the actor's old position
-	actorMap[actor.y + '_' + actor.x]= null;
+	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]= null;
 	// update position
 	actor.y+=dir.y;
 	actor.x+=dir.x;
 	// add reference to the actor's new position
-	actorMap[actor.y + '_' + actor.x]=actor;
+	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]=actor;
 }
 //******************************************************************************************************
 //******************************************************************************************************
@@ -588,15 +580,23 @@ function genRoom(map, xPos, yPos, width, height){
 //******************************************************************************************************
 function checkItemHit(){
 	var newKey = player.y +'_' + player.x;
-	if(itemMap[newKey] != null){
-		var item = itemMap[newKey];
+	if(mapObj.ITEM_MAP[newKey] != null){
+		var item = mapObj.ITEM_MAP[newKey];
 		switch (item.type){
 			case "COIN": 
-				itemMap[newKey] = null;
-				itemList[itemList.indexOf(item)]=null;
+				mapObj.ITEM_MAP[newKey] = null;
+				mapObj.ITEM_LIST[mapObj.ITEM_LIST.indexOf(item)]=null;
 				grabCoin(); 
 				break;
-}	}	}
+			case "LADDER_DOWN":
+				level == 0 ? level = 1 : level = 0;
+				if(level == 0)ladderFlag = true;
+				return true;
+				break;
+		}
+	}
+	return false;
+}
 //******************************************************************************************************
 //******************************************************************************************************
 function grabCoin(){
@@ -612,12 +612,7 @@ function grabCoin(){
 //******************************************************************************************************
 //******************************************************************************************************
 function trace(e){
-	if(traceY > 600){
-		traceGroup.removeAll();
-		traceY = 0;
-	}
-	game.add.text(0, traceY, e, { fill : '#fff', align: "left" }, traceGroup );
-	traceY += 30;
+	console.log(e);
 }
 //******************************************************************************************************
 //******************************************************************************************************
