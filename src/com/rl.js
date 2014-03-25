@@ -15,12 +15,12 @@ var itemDisplay;
 var roomArray; // Holds the information for the rooms on the map
 var topDisplay;
 var topDisplayList;
-var livingEnemies;
+//var livingEnemies;
 var npcPhase = false;
 var scoreArray;
 var score = 0;
 var aStarGraph;
-var ladderFlag = false;
+var transitionDirection = "START";
 
 // initialize phaser, call create() once done
 var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phaser.AUTO, null, {
@@ -55,7 +55,6 @@ function onUpdate()	{
 //******************************************************************************************************
 //******************************************************************************************************
 function create() {
-	// console.log("poop!"); // This is how you console log son!
 	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
 	levels = 2;
@@ -65,7 +64,7 @@ function create() {
 	while(maps.length < levels){
 		tMap = initMap();
 		if(tMap.length > 0){
-			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null});
+			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null, ROOM_ARRAY:roomArray});
 		}
 	}
 	drawTopBar(); // draw UI top bar
@@ -82,26 +81,73 @@ function clearMap(){
 	for(var a in mapObj.ITEM_LIST)if(mapObj.ITEM_LIST[a] != null)tA.push(mapObj.ITEM_LIST[a]);
 	mapObj.ITEM_LIST = tA;
 	tA = [];
+
 	for(var a in mapObj.ACTOR_LIST)if(mapObj.ACTOR_LIST[a] != null)tA.push(mapObj.ACTOR_LIST[a]);
 	mapObj.ACTOR_LIST = tA;
+
+	for(var a in itemDisplay)itemDisplay[a].kill();
+	for(var a in actorDisplay)actorDisplay[a].kill();
+
+	for(var a in mapObj.SCREEN){
+		for(var b in mapObj.SCREEN[a])mapObj.SCREEN[a][b].visible = false;
+	}
+	for(var a in mapObj.OVERLAY){
+		for(var b in mapObj.OVERLAY[a])mapObj.OVERLAY[a][b].visible = false;
+	}
+
+	playerDisplay = null;
+	player = null;
 }
 //******************************************************************************************************
 //******************************************************************************************************
 function buildMap(){
+	trace("level: " + level);
+	trace("maps.length: " + maps.length);
 	mapObj = maps[level];
 	currentMap = mapObj.MAP;
 
-	if(mapObj.SCREEN == null)mapObj.SCREEN = initTiles(true);
+	if(mapObj.SCREEN == null){
+		mapObj.SCREEN = initTiles(true);
+	}else{
+		for(var a in mapObj.SCREEN){
+			for(var b in mapObj.SCREEN[a]){
+				mapObj.SCREEN[a][b].bringToTop();
+				mapObj.SCREEN[a][b].visible = true;
+			}
+		}
+	}
+
 	if(mapObj.ACTOR_LIST == null)initActors();
+	player = mapObj.ACTOR_LIST[0]; // the player is the first actor in the list
+
 	if(mapObj.ITEM_LIST == null)initItems();
+
+	var ladderPos = {x:player.x, y:player.y};
+	if(transitionDirection != "START"){
+		trace("searching for " + transitionDirection);
+		for(var a in mapObj.ITEM_LIST){if(mapObj.ITEM_LIST[a].type == transitionDirection){ladderPos = {x:mapObj.ITEM_LIST[a].x, y:mapObj.ITEM_LIST[a].y}}};
+		trace("ladderPos: " + ladderPos.x + ", " + ladderPos.y);
+	}
+	player.x = ladderPos.x;
+	player.y = ladderPos.y;
 
 	drawItems();
 	drawActors(); // draw actors into the level
 
-	//mapObj.OVERLAY != null ? overlay = mapObj.OVERLAY : overlay = initTiles(false);
-	if(mapObj.OVERLAY == null)mapObj.OVERLAY = initTiles(false);
-
+	if(mapObj.OVERLAY == null){
+		mapObj.OVERLAY = initTiles(false);
+	}else{
+		for(var a in mapObj.OVERLAY){
+			for(var b in mapObj.OVERLAY[a]){
+				mapObj.OVERLAY[a][b].bringToTop();
+				mapObj.OVERLAY[a][b].visible = true;
+			}
+		}
+	}
+	
 	positionObjects();
+	trace("player: " + player);
+	trace("playerDisplay: " + playerDisplay);
 	drawMap();
 
 	for (var a in topDisplayList) {
@@ -304,8 +350,7 @@ function initActors() {
 		mapObj.ACTOR_MAP[actor.y + "_" + actor.x] = actor;
 		mapObj.ACTOR_LIST.push(actor);
 	}
-	player = mapObj.ACTOR_LIST[0]; // the player is the first actor in the list
-	livingEnemies = ACTORS - 1;
+	//livingEnemies = ACTORS - 1;
 }
 //******************************************************************************************************
 //******************************************************************************************************
@@ -313,23 +358,30 @@ function initItems(){
 	// One item per room, currently scattered randomly around the map, need to put 1 item per room
 	mapObj.ITEM_LIST = [];
 	mapObj.ITEM_MAP = {};
-	for(var e = 0; e < roomArray.length; e++){
+	for(var e = 0; e < mapObj.ROOM_ARRAY.length; e++){
 		var item = {x:0, y:0, type:"COIN", frame:12};
 		mapObj.ITEM_LIST.push(item);
 	}
 	// add a fifth of the rooms as mushrooms
-	for(e = 0; e < roomArray.length / 5; e++){
+	for(e = 0; e < mapObj.ROOM_ARRAY.length / 5; e++){
 		item = {x:0, y:0, type:"MUSHROOM", frame:14};
 		mapObj.ITEM_LIST.push(item);
 	}
 	// add lots of grass
-	for(e = 0; e < roomArray.length * 2; e++){
+	for(e = 0; e < mapObj.ROOM_ARRAY.length * 2; e++){
 		item = {x:0, y:0, type:"GRASS", frame:13};
 		mapObj.ITEM_LIST.push(item);
 	}
 	// Add a ladder going down, if level != 1, add ladder going up
-	mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
-	if(level > 1) mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_UP", frame:2});
+
+	if(level < levels - 1) {
+		trace("building ladder down");
+		mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
+	}
+	if(level > 0) {
+		trace("building ladder up");
+		mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_UP", frame:2});
+	}
 	
 	var completeItems = mapObj.ITEM_LIST.length;
 	var usedSquares = [];
@@ -353,8 +405,8 @@ function drawActors() {
 	for (var a in mapObj.ACTOR_LIST) {
 		if (mapObj.ACTOR_LIST[a] != null && mapObj.ACTOR_LIST[a].hp > 0) {
 			var tileType = a == 0 ? 1 : 10;
-			var playerSprite = game.add.sprite(TILESIZE * mapObj.ACTOR_LIST[a].x, (TILESIZE * mapObj.ACTOR_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
-			actorDisplay.push(playerSprite);
+			var tSprite = game.add.sprite(TILESIZE * mapObj.ACTOR_LIST[a].x, (TILESIZE * mapObj.ACTOR_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
+			actorDisplay.push(tSprite);
 		}
 	}
 	playerDisplay = actorDisplay[0];
@@ -366,8 +418,8 @@ function drawItems() {
 	for (var a in mapObj.ITEM_LIST) {
 		if (mapObj.ITEM_LIST[a] != null) {
 			var tileType = mapObj.ITEM_LIST[a].frame;
-			var playerSprite = game.add.sprite(TILESIZE * mapObj.ITEM_LIST[a].x, (TILESIZE * mapObj.ITEM_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
-			itemDisplay.push(playerSprite);
+			var tSprite = game.add.sprite(TILESIZE * mapObj.ITEM_LIST[a].x, (TILESIZE * mapObj.ITEM_LIST[a].y) + TILESIZE, "dungeonSheet", tileType);
+			itemDisplay.push(tSprite);
 }}}
 //******************************************************************************************************
 //******************************************************************************************************
@@ -414,6 +466,8 @@ function drawTopBar() {
 //******************************************************************************************************
 //******************************************************************************************************
 function positionObjects() {
+	//trace("item list count: " + mapObj.ITEM_LIST.length);
+	//trace("actor list count: " + mapObj.ACTOR_LIST.length);
 	for(var a in mapObj.ITEM_LIST){
 		if(mapObj.ITEM_LIST[a] == null && itemDisplay[a] != null){
 			itemDisplay[a].kill();
@@ -430,6 +484,8 @@ function positionObjects() {
 			actorDisplay[a].y = (mapObj.ACTOR_LIST[a].y * TILESIZE) + TILESIZE;
 		}
 	}
+	trace("positionObjects: " + playerDisplay);
+	trace("playerCameraOffset: " + playerCameraOffset);
 	if(playerDisplay != null && playerCameraOffset != null){
 		playerCameraOffset.x = playerDisplay.x + 32;
 		playerCameraOffset.y = playerDisplay.y;
@@ -483,13 +539,14 @@ function hitActor(attacker, victim, dir, newKey) {
 	if (victim.hp == 0) {
 		mapObj.ACTOR_MAP[newKey]= null;
 		mapObj.ACTOR_LIST[mapObj.ACTOR_LIST.indexOf(victim)]=null;
-		if(victim!=player) {
-			livingEnemies--;
-			if (livingEnemies == 0) {
+		/*if(victim!=player) { // No longer relevant
+			//livingEnemies--;
+			if (livingEnemies == 0) { // No longer relevant
 				// victory message
 				var victory = game.add.text(playerDisplay.x, playerDisplay.y, 'Victory!\nCtrl+r to restart', { fill : '#2e2', align: "center" } );
 				victory.anchor.setTo(0.5,0.5);
-		}	}
+			}	
+		}*/
 		confirmMove(attacker, dir);
 }	}
 //******************************************************************************************************
@@ -589,8 +646,13 @@ function checkItemHit(){
 				grabCoin(); 
 				break;
 			case "LADDER_DOWN":
-				level == 0 ? level = 1 : level = 0;
-				if(level == 0)ladderFlag = true;
+				level++;
+				transitionDirection = "LADDER_UP";
+				return true;
+				break;
+			case "LADDER_UP":
+				level--;
+				transitionDirection = "LADDER_DOWN";
 				return true;
 				break;
 		}
