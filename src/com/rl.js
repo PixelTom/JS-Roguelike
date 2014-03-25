@@ -12,7 +12,6 @@ development option we can use.
 var TILESIZE = 64; var ROWS = 40; var COLS = 40;
 var vROWS = 9; var vCOLS = 13;
 var ACTORS = 10; // number of actors per level, including player, Future Plans: less static, more random
-var currentMap; // the structure of the map	
 var maps; // Array of map arrays
 var level; // What level the player is on
 var levels; // How many levels all up
@@ -127,7 +126,6 @@ function buildMap(){
 	trace("level: " + level);
 	trace("maps.length: " + maps.length);
 	mapObj = maps[level];
-	currentMap = mapObj.MAP;
 
 	if(mapObj.SCREEN == null){
 		mapObj.SCREEN = initTiles(true);
@@ -192,7 +190,7 @@ function initTiles(isScreen){
 		var newRow = [];
 		a.push(newRow);
 		for (var x = 0; x < COLS; x++){
-			isScreen ? newRow.push(initCell(currentMap[y][x], x, y)) : newRow.push(initCell(-1, x, y))
+			isScreen ? newRow.push(initCell(mapObj.MAP[y][x], x, y)) : newRow.push(initCell(-1, x, y))
 		}
 	}
 	return a;
@@ -387,7 +385,7 @@ function initActors() {
 		do { // pick a random position that is both a floor and not occupied
 			actor.y = randomInt(ROWS);
 			actor.x = randomInt(COLS);
-		} while (currentMap[actor.y][actor.x] <= 0 || mapObj.ACTOR_MAP[actor.y + "_" + actor.x] != null);
+		} while (mapObj.MAP[actor.y][actor.x] <= 0 || mapObj.ACTOR_MAP[actor.y + "_" + actor.x] != null);
 		// add references to the actor to the actors list & map
 		mapObj.ACTOR_MAP[actor.y + "_" + actor.x] = actor;
 		mapObj.ACTOR_LIST.push(actor);
@@ -433,7 +431,7 @@ function initItems(){
 		var tX = rn(0, COLS - 1);
 		var tY = rn(0, ROWS - 1);
 		var txtLoc = String(tX) + "_" + String(tY);
-		if(currentMap[tY][tX] <= 0 || usedSquares.indexOf(txtLoc) >= 0)continue;
+		if(mapObj.MAP[tY][tX] <= 0 || usedSquares.indexOf(txtLoc) >= 0)continue;
 		usedSquares.push(txtLoc);
 		item = mapObj.ITEM_LIST[completeItems - 1];
 		item.x = tX;
@@ -552,7 +550,7 @@ function canGo(actor,dir) {
 			actor.x+dir.x <= COLS - 1 &&
 			actor.y+dir.y >= 0 &&
 			actor.y+dir.y <= ROWS - 1 &&
-			currentMap[actor.y+dir.y][actor.x +dir.x] == 1;
+			mapObj.MAP[actor.y+dir.y][actor.x +dir.x] == 1;
 }
 //******************************************************************************************************
 // moveTo:
