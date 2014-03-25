@@ -57,7 +57,7 @@ function onUpdate()	{
 function create() {
 	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
-	levels = 2;
+	levels = 3;
 	level = 0;
 	maps = [];
 	var tMap;
@@ -124,12 +124,15 @@ function buildMap(){
 
 	var ladderPos = {x:player.x, y:player.y};
 	if(transitionDirection != "START"){
-		trace("searching for " + transitionDirection);
+		//trace("searching for " + transitionDirection);
 		for(var a in mapObj.ITEM_LIST){if(mapObj.ITEM_LIST[a].type == transitionDirection){ladderPos = {x:mapObj.ITEM_LIST[a].x, y:mapObj.ITEM_LIST[a].y}}};
-		trace("ladderPos: " + ladderPos.x + ", " + ladderPos.y);
+		//trace("ladderPos: " + ladderPos.x + ", " + ladderPos.y);
 	}
+	// Player needs to be shifted to the ladder position
+	mapObj.ACTOR_MAP[player.y + "_" + player.x] = null;
 	player.x = ladderPos.x;
 	player.y = ladderPos.y;
+	mapObj.ACTOR_MAP[player.y + "_" + player.x] = player;
 
 	drawItems();
 	drawActors(); // draw actors into the level
@@ -375,11 +378,11 @@ function initItems(){
 	// Add a ladder going down, if level != 1, add ladder going up
 
 	if(level < levels - 1) {
-		trace("building ladder down");
+		//trace("building ladder down");
 		mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_DOWN", frame:2});
 	}
 	if(level > 0) {
-		trace("building ladder up");
+		//trace("building ladder up");
 		mapObj.ITEM_LIST.push({x:0,y:0, type:"LADDER_UP", frame:2});
 	}
 	
@@ -484,8 +487,8 @@ function positionObjects() {
 			actorDisplay[a].y = (mapObj.ACTOR_LIST[a].y * TILESIZE) + TILESIZE;
 		}
 	}
-	trace("positionObjects: " + playerDisplay);
-	trace("playerCameraOffset: " + playerCameraOffset);
+	//trace("positionObjects: " + playerDisplay);
+	//trace("playerCameraOffset: " + playerCameraOffset);
 	if(playerDisplay != null && playerCameraOffset != null){
 		playerCameraOffset.x = playerDisplay.x + 32;
 		playerCameraOffset.y = playerDisplay.y;
