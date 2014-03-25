@@ -358,7 +358,6 @@ function checkSurrounding(map,y, x){
 			if(map[tY][tX] > 0) return true;
 		}
 	}
-
 	return false;
 }
 //******************************************************************************************************
@@ -583,12 +582,13 @@ function hitActor(attacker, victim, dir, newKey) {
 				var point = heart.cameraOffset; 
 				var pos = [heart.x, heart.y];
 				heart.FULL = false;
-				heart.kill();
-				heart = game.add.sprite(pos[0],pos[1],"dungeonSheet",6);
-				heart.fixedToCamera = true;
-				heart.cameraOffset = point;
-				heart.FULL = false;
-				topDisplay[id] = heart;
+				heart.animations.frame = 6;
+				//heart.kill();
+				//heart = game.add.sprite(pos[0],pos[1],"dungeonSheet",6);
+				//heart.fixedToCamera = true;
+				//heart.cameraOffset = point;
+				//heart.FULL = false;
+				//topDisplay[id] = heart;
 				break;
 	}	}	}
 	// if it's dead remove its reference 
