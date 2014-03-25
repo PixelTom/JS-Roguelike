@@ -1,7 +1,17 @@
-// font size
+/***************************************************************************************
+JAVASCRIPT ROGUELIKE
+Author: Thomas Gattenhof
+Employer: 3rd Sense Australia
+
+About: This is my first jump into the HTML5 world, with shift towards more HTML5
+projects in our sector I feel we need to skill up on Javascript in order to have
+access to more clients. I don't see this as a replacement to Flash, but as of another
+development option we can use.
+***************************************************************************************/
+
 var TILESIZE = 64; var ROWS = 40; var COLS = 40;
 var vROWS = 9; var vCOLS = 13;
-var ACTORS = 10; // number of actors per level, including player
+var ACTORS = 10; // number of actors per level, including player, Future Plans: less static, more random
 var currentMap; // the structure of the map	
 var maps; // Array of map arrays
 var level; // What level the player is on
@@ -15,7 +25,6 @@ var itemDisplay;
 var roomArray; // Holds the information for the rooms on the map
 var topDisplay;
 var topDisplayList;
-//var livingEnemies;
 var npcPhase = false;
 var scoreArray;
 var score = 0;
@@ -27,14 +36,33 @@ var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phas
 	preload:onPreload, create: create, update:onUpdate
 });
 //******************************************************************************************************
+// onPreload: 
+// Preloader, called by Phaser Framework
 //******************************************************************************************************
 function onPreload() {
 	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
 	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
 	loading.anchor.setTo(0.5,0.5);
+
+	// TODO: Need to put in a loading bar of sorts here, increments once a level is generated
+
+	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
+	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
+	levels = 3;
+	level = 0;
+	maps = [];
+	var tMap;
+	while(maps.length < levels){
+		tMap = initMap();
+		if(tMap.length > 0){
+			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null, ROOM_ARRAY:roomArray});
+		}
+	}
 }
 //******************************************************************************************************
+// onUpdate:
+// Called once per frame by the Phaser framework
 //******************************************************************************************************
 function onUpdate()	{	
 	if(npcPhase){
@@ -53,20 +81,10 @@ function onUpdate()	{
 	}
 }
 //******************************************************************************************************
+// create:
+// Called by the Phaser framework upon preload
 //******************************************************************************************************
 function create() {
-	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
-	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
-	levels = 3;
-	level = 0;
-	maps = [];
-	var tMap;
-	while(maps.length < levels){
-		tMap = initMap();
-		if(tMap.length > 0){
-			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null, ROOM_ARRAY:roomArray});
-		}
-	}
 	drawTopBar(); // draw UI top bar
 	buildMap();
 
@@ -75,6 +93,8 @@ function create() {
 	game.camera.follow(playerCameraOffset);
 }
 //******************************************************************************************************
+// clearMap:
+// Saves the current map and closes down all sprites to allow for a new level to be loaded in
 //******************************************************************************************************
 function clearMap(){
 	var tA = [];
@@ -99,6 +119,9 @@ function clearMap(){
 	player = null;
 }
 //******************************************************************************************************
+// buildMap:
+// Make a new dungeon level. The layout is already made but items and monsters need to populate
+// If the map has been visited already, use existing data
 //******************************************************************************************************
 function buildMap(){
 	trace("level: " + level);
@@ -158,6 +181,10 @@ function buildMap(){
 	}
 }
 //******************************************************************************************************
+// initTiles:
+// Build an array of tile sprites for the map
+// isScreen = true: Build the actual tiles needed
+// isScreen = false: Build all black tiles, to use as a fog of war overlay
 //******************************************************************************************************
 function initTiles(isScreen){
 	var a = [];
@@ -171,6 +198,8 @@ function initTiles(isScreen){
 	return a;
 }
 //******************************************************************************************************
+// initCell
+// Create a cell for the tile map
 //******************************************************************************************************
 function initCell(chr, x, y) {
 	var tileType = chr == 0 ? 3 : 8;
@@ -180,6 +209,8 @@ function initCell(chr, x, y) {
 	return tileSprite;
 }
 //******************************************************************************************************
+// drawMap
+// draw up the map of the current dungeon level, check tile distance from player position and adjust overlay accordingly
 //******************************************************************************************************
 function drawMap(){
 	for (var y = 0; y < ROWS; y++) {
@@ -202,6 +233,9 @@ function drawMap(){
 	}	
 }
 //******************************************************************************************************
+// initMap: 
+// Build a new level of the dungeon, an array indicating tile types (currently only floor and wall)
+// Future plans: Different terrain types, chasms
 //******************************************************************************************************
 function initMap() {
 	var map = [];
@@ -304,6 +338,8 @@ function initMap() {
 	return map;
 }
 //******************************************************************************************************
+// checkSurrounding
+// If the focused tile has only walls around it, it is a dead tile and can be made black
 //******************************************************************************************************
 function checkSurrounding(map,y, x){
 	y = parseInt(y);
@@ -328,16 +364,19 @@ function checkSurrounding(map,y, x){
 	return false;
 }
 //******************************************************************************************************
+// randomInt: random int between 0 and max inclusive
+// rn: random inter between min and max inclusive
 //******************************************************************************************************
 function randomInt(max) {
 	return Math.floor(Math.random() * max);
 }
-//******************************************************************************************************
-//******************************************************************************************************
 function rn(min, max) {
 	return Math.round(Math.random() * (max - min)) + min;
 }
 //******************************************************************************************************
+// initActors: 
+// Build a new actor list, first actor is always the player, the rest are monsters (for now)
+// Future Plans: split up this process, make player on his own, make NPCs, shopkeepers, etc
 //******************************************************************************************************
 function initActors() {
 	// create actors at random locations
@@ -356,6 +395,8 @@ function initActors() {
 	//livingEnemies = ACTORS - 1;
 }
 //******************************************************************************************************
+// initItems
+// Populate the map with items
 //******************************************************************************************************
 function initItems(){
 	// One item per room, currently scattered randomly around the map, need to put 1 item per room
@@ -402,6 +443,8 @@ function initItems(){
 	}
 }
 //******************************************************************************************************
+// drawActors:
+// make new sprites for the actors and add them to the display list
 //******************************************************************************************************
 function drawActors() {
 	actorDisplay = [];
@@ -415,6 +458,8 @@ function drawActors() {
 	playerDisplay = actorDisplay[0];
 }
 //******************************************************************************************************
+// drawItems:
+// make new sprites for the items and add them to the display list
 //******************************************************************************************************
 function drawItems() {
 	itemDisplay = [];
@@ -425,6 +470,8 @@ function drawItems() {
 			itemDisplay.push(tSprite);
 }}}
 //******************************************************************************************************
+// drawTopBar:
+// add the top bar to the display list
 //******************************************************************************************************
 function drawTopBar() {
 	var startX = vCOLS * TILESIZE;
@@ -467,6 +514,8 @@ function drawTopBar() {
 	}
 }
 //******************************************************************************************************
+// positionObjects:
+// Move the sprites of the actors and items to their designated destination
 //******************************************************************************************************
 function positionObjects() {
 	//trace("item list count: " + mapObj.ITEM_LIST.length);
@@ -495,6 +544,8 @@ function positionObjects() {
 	}
 }
 //******************************************************************************************************
+// canGo:
+// Checking if the focued actor can move in the direction requested
 //******************************************************************************************************
 function canGo(actor,dir) {
 	return 	actor.x+dir.x >= 0 &&
@@ -504,6 +555,8 @@ function canGo(actor,dir) {
 			currentMap[actor.y+dir.y][actor.x +dir.x] == 1;
 }
 //******************************************************************************************************
+// moveTo:
+// Move the actor in the direction requested, if the tile is filled with another, engage hit code
 //******************************************************************************************************
 function moveTo(actor, dir) { // check if actor can move in the given direction
 	if (!canGo(actor,dir)) 
@@ -520,6 +573,8 @@ function moveTo(actor, dir) { // check if actor can move in the given direction
 	return true;
 }
 //******************************************************************************************************
+// hitActor:
+// determine action after 2 actors collide
 //******************************************************************************************************
 function hitActor(attacker, victim, dir, newKey) {
 	victim.hp--;
@@ -553,6 +608,8 @@ function hitActor(attacker, victim, dir, newKey) {
 		confirmMove(attacker, dir);
 }	}
 //******************************************************************************************************
+// confirmMove:
+// after validation, update actors destination upon update
 //******************************************************************************************************
 function confirmMove(actor, dir){
 	// remove reference to the actor's old position
@@ -564,6 +621,8 @@ function confirmMove(actor, dir){
 	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]=actor;
 }
 //******************************************************************************************************
+// onKeyUp:
+// Keyboard Event handler
 //******************************************************************************************************
 function onKeyUp(event) { // act on player input
 	if(player.hp < 1)return;
@@ -577,6 +636,8 @@ function onKeyUp(event) { // act on player input
 		}
 }	}
 //******************************************************************************************************
+// aiAct:
+// Incredibly basic AI for the monsters, will need updating
 //******************************************************************************************************
 function aiAct(actor) {
 	var directions = [ { x: -1, y:0 }, { x:1, y:0 }, { x:0, y: -1 }, { x:0, y:1 } ];	
@@ -607,6 +668,9 @@ function aiAct(actor) {
 	}	
 }
 //******************************************************************************************************
+// genRoom:
+// Part of the initMap process, which generates whole rooms if there is space, they are linked up with
+// corridoors after creation.
 //******************************************************************************************************
 function genRoom(map, xPos, yPos, width, height){
 	//trace('genRoom 1');
@@ -637,6 +701,8 @@ function genRoom(map, xPos, yPos, width, height){
 	return roomCenter;
 }
 //******************************************************************************************************
+// checkItemHit:
+// Has the player walked over an item? Act accordingly
 //******************************************************************************************************
 function checkItemHit(){
 	var newKey = player.y +'_' + player.x;
@@ -663,6 +729,8 @@ function checkItemHit(){
 	return false;
 }
 //******************************************************************************************************
+// grabCoin:
+// grab... a coin...
 //******************************************************************************************************
 function grabCoin(){
 	score++;
@@ -675,12 +743,16 @@ function grabCoin(){
 	}
 }
 //******************************************************************************************************
+// trace:
+// pushes all trace calls to the console log, comment out the line upon release
 //******************************************************************************************************
 function trace(e){
 	console.log(e);
 }
 //******************************************************************************************************
-//******************************************************************************************************
 // aStar and graph code
+// two working engines, minimized for space reasons.
+// Future Plans: Find a way to link to these JS files so I don't need to add them here
+//******************************************************************************************************
 var astar={init:function(e){for(var t=0,n=e.length;t<n;t++){for(var r=0,i=e[t].length;r<i;r++){var s=e[t][r];s.f=0;s.g=0;s.h=0;s.cost=s.type;s.visited=false;s.closed=false;s.parent=null}}},heap:function(){return new BinaryHeap(function(e){return e.f})},search:function(e,t,n,r,i){astar.init(e);i=i||astar.manhattan;r=!!r;var s=astar.heap();s.push(t);while(s.size()>0){var o=s.pop();if(o===n){var u=o;var a=[];while(u.parent){a.push(u);u=u.parent}return a.reverse()}o.closed=true;var f=astar.neighbors(e,o,r);for(var l=0,c=f.length;l<c;l++){var h=f[l];if(h.closed||h.isWall()){continue}var p=o.g+h.cost;var d=h.visited;if(!d||p<h.g){h.visited=true;h.parent=o;h.h=h.h||i(h.pos,n.pos);h.g=p;h.f=h.g+h.h;if(!d){s.push(h)}else{s.rescoreElement(h)}}}}return[]},manhattan:function(e,t){var n=Math.abs(t.x-e.x);var r=Math.abs(t.y-e.y);return n+r},neighbors:function(e,t,n){var r=[];var i=t.x;var s=t.y;if(e[i-1]&&e[i-1][s]){r.push(e[i-1][s])}if(e[i+1]&&e[i+1][s]){r.push(e[i+1][s])}if(e[i]&&e[i][s-1]){r.push(e[i][s-1])}if(e[i]&&e[i][s+1]){r.push(e[i][s+1])}if(n){if(e[i-1]&&e[i-1][s-1]){r.push(e[i-1][s-1])}if(e[i+1]&&e[i+1][s-1]){r.push(e[i+1][s-1])}if(e[i-1]&&e[i-1][s+1]){r.push(e[i-1][s+1])}if(e[i+1]&&e[i+1][s+1]){r.push(e[i+1][s+1])}}return r}}
 function Graph(e){var t=[];for(var n=0;n<e.length;n++){t[n]=[];for(var r=0,i=e[n];r<i.length;r++){t[n][r]=new GraphNode(n,r,i[r])}}this.input=e;this.nodes=t}function GraphNode(e,t,n){this.data={};this.x=e;this.y=t;this.pos={x:e,y:t};this.type=n}function BinaryHeap(e){this.content=[];this.scoreFunction=e}var GraphNodeType={OPEN:1,WALL:0};Graph.prototype.toString=function(){var e="\n";var t=this.nodes;var n,r,i,s;for(var o=0,u=t.length;o<u;o++){n="";r=t[o];for(i=0,s=r.length;i<s;i++){n+=r[i].type+" "}e=e+n+"\n"}return e};GraphNode.prototype.toString=function(){return"["+this.x+" "+this.y+"]"};GraphNode.prototype.isWall=function(){return this.type==GraphNodeType.WALL};BinaryHeap.prototype={push:function(e){this.content.push(e);this.sinkDown(this.content.length-1)},pop:function(){var e=this.content[0];var t=this.content.pop();if(this.content.length>0){this.content[0]=t;this.bubbleUp(0)}return e},remove:function(e){var t=this.content.indexOf(e);var n=this.content.pop();if(t!==this.content.length-1){this.content[t]=n;if(this.scoreFunction(n)<this.scoreFunction(e)){this.sinkDown(t)}else{this.bubbleUp(t)}}},size:function(){return this.content.length},rescoreElement:function(e){this.sinkDown(this.content.indexOf(e))},sinkDown:function(e){var t=this.content[e];while(e>0){var n=(e+1>>1)-1,r=this.content[n];if(this.scoreFunction(t)<this.scoreFunction(r)){this.content[n]=t;this.content[e]=r;e=n}else{break}}},bubbleUp:function(e){var t=this.content.length,n=this.content[e],r=this.scoreFunction(n);while(true){var i=e+1<<1,s=i-1;var o=null;if(s<t){var u=this.content[s],a=this.scoreFunction(u);if(a<r)o=s}if(i<t){var f=this.content[i],l=this.scoreFunction(f);if(l<(o===null?r:a)){o=i}}if(o!==null){this.content[e]=this.content[o];this.content[o]=n;e=o}else{break}}}}
