@@ -64,7 +64,7 @@ function onUpdate()	{
 	if(npcPhase){
 		for (var a = 1; a < mapObj.ACTOR_LIST.length; a++) {
 			var enemy = mapObj.ACTOR_LIST[a];
-			if(enemy)aiAct(enemy);
+			if(enemy && player.hp > 0)aiAct(enemy);
 		}
 		if(checkItemHit()){
 			clearMap();
@@ -393,7 +393,7 @@ function initActors() {
 	mapObj.ACTOR_LIST = [];
 	mapObj.ACTOR_MAP = {};
 	for (var e = 0; e < ACTORS; e++) {
-		var actor = {x: 0,y: 0,hp: e == 0 ? 3 : 1}; // create new actor
+		var actor = {x: 0,y: 0,hp: e == 0 ? 3 : 1, name: e == 0 ? "YOU" : "Blockman"}; // create new actor
 		do { // pick a random position that is both a floor and not occupied
 			actor.y = randomInt(ROWS);
 			actor.x = randomInt(COLS);
@@ -591,6 +591,8 @@ function moveTo(actor, dir, dirTxt) { // check if actor can move in the given di
 function hitActor(attacker, victim, dir, newKey, dirTxt) {
 	victim.hp--;
 	if(victim == player){
+		scribe(randomDescription('HIT_PLAYER', attacker.name));
+		scribe(attacker.name + " hits you for 1 hp.");
 		for(var id in topDisplay){
 			var heart = topDisplay[id];
 			if(heart.FULL == true){
@@ -599,11 +601,16 @@ function hitActor(attacker, victim, dir, newKey, dirTxt) {
 				heart.FULL = false;
 				heart.animations.frame = 6;
 				break;
-	}	}	}
+			}
+		}
+	}else{
+		scribe(randomDescription('HIT_MONSTER', victim.name));
+	}
 	// if it's dead remove its reference 
 	if (victim.hp == 0) {
 		mapObj.ACTOR_MAP[newKey]= null;
 		mapObj.ACTOR_LIST[mapObj.ACTOR_LIST.indexOf(victim)]=null;
+		if(victim!=player)scribe(victim.name + " dies.");
 		/*if(victim!=player) { // No longer relevant
 			//livingEnemies--;
 			if (livingEnemies == 0) { // No longer relevant
@@ -626,7 +633,7 @@ function confirmMove(actor, dir, dirTxt){
 	actor.x+=dir.x;
 	// add reference to the actor's new position
 	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]=actor;
-	if(actor == player && dirTxt != null)scribe('You move ' + dirTxt);
+	//if(actor == player && dirTxt != null)scribe('You move ' + dirTxt);
 }
 //******************************************************************************************************
 // onKeyUp:
@@ -672,8 +679,9 @@ function aiAct(actor) {
 	}
 
 	if (player.hp < 1) { // game over message
-		var gameOver = game.add.text(playerDisplay.x, playerDisplay.y, 'Game Over\nCtrl+r to restart', { fill : '#e22', align: "center" } );
-		gameOver.anchor.setTo(0.5,0.5);
+		scribe('Well Done, you died. Hit Ctrl+r to restart.');
+		//var gameOver = game.add.text(playerDisplay.x, playerDisplay.y, 'Game Over\nCtrl+r to restart', { fill : '#e22', align: "center" } );
+		//gameOver.anchor.setTo(0.5,0.5);
 	}	
 }
 //******************************************************************************************************
@@ -775,7 +783,7 @@ function trace(e){
 // randomDescription:
 // for flavour
 //******************************************************************************************************
-function randomDescription(type){
+function randomDescription(type, alt){
 	var options = [''];
 	switch(type){
 		case 'LEVEL':
@@ -794,13 +802,37 @@ function randomDescription(type){
 				case 11: return "You finally understand Rob Schneider's appeal"; break;
 				case 12: return "Just admit it, you're lost"; break;
 				case 13: return 'The orange tiles are walls not lava.'; break;
-				case 14: return "I don't know what the mushrooms do."; break;
-				case 15: return 'The googles do nothing.'; break;
-				case 16: return 'Someone had been here recently.. and farted.'; break;
+				case 14: return "You've got red on you."; break;
+				case 15: return 'The goggles do nothing.'; break;
+				case 16: return "Do not touch. - Willie."; break;
 				case 17: return "You're wearing a helmet but no pants."; break;
 				case 18: return 'Is someone cooking bacon?'; break;
 				case 19: return 'Fun Fact: N/A'; break;
-				case 20: return 'A foul beast lurks beyond yonder.. or some shit.'; break;
+				case 20: return 'A foul beast lurks beyond yonder, yer mum.'; break;
+			}
+		break;
+		case 'HIT_PLAYER':
+			switch(rn(1,8))
+			{
+				case 1: return "The " + alt + " makes fun of your weight."; break;
+				case 2: return "You're slapped silly."; break;
+				case 3: return "You fail a saving roll, you nerd."; break;
+				case 4: return "The " + alt + " tells a 'Your Mum' joke."; break;
+				case 5: return "He has no arms, but he still hit you."; break;
+				case 6: return "SPLOT!"; break;
+				case 7: return "PING!"; break;
+				case 8: return "DOOFFF!"; break;
+			}
+		break;
+		case 'HIT_MONSTER':
+			switch(rn(1,6))
+			{
+				case 1: return 'You strike out with sweet ninja moves.'; break;
+				case 2: return 'You hit like a girl.'; break;
+				case 3: return 'You push the ' + alt + ' with gusto.'; break;
+				case 4: return 'BLAMFF!'; break;
+				case 5: return 'BOFF!'; break;
+				case 6: return 'POW!'; break;
 			}
 		break;
 	}
