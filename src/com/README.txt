@@ -1,1 +1,0 @@
-astar.js and graph.js have been copied into rl.jsThis is because I'm still new to JS and can't figure out linking other JS files yet.

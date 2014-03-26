@@ -1,8 +1,8 @@
 # First, ignore everything
 assets/*
 progress/*
-src/com/*
-src/mongoose.exe
+com/*
+mongoose.exe
 # Now, whitelist anything that's a directory
 # And all the file types you're interested in.
 !*.js
