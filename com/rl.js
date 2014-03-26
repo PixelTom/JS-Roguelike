@@ -45,7 +45,7 @@ function onPreload() {
 
 	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
-	game.input.onTap.add(onTap);
+	game.input.onDown.add(onTap);
 	levels = 3;
 	level = 0;
 	maps = [];
