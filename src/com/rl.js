@@ -45,6 +45,7 @@ function onPreload() {
 
 	game.world.setBounds(-1000, -1000, (TILESIZE * COLS) + 2000, (TILESIZE * ROWS) + 2000);
 	game.input.keyboard.addCallbacks(null, onKeyUp, null); // init keyboard commands
+	game.input.onTap.add(onTap);
 	levels = 3;
 	level = 0;
 	maps = [];
@@ -636,6 +637,25 @@ function confirmMove(actor, dir, dirTxt){
 	//if(actor == player && dirTxt != null)scribe('You move ' + dirTxt);
 }
 //******************************************************************************************************
+// onTap:
+// Tap handler
+//******************************************************************************************************
+function onTap(e){
+	//trace(e.positionDown);
+	// Make a false 0,0 in the middle
+	var x = e.positionDown.x - (832 / 2);
+	var y = e.positionDown.y - (640 / 2) - 32;
+	trace("x: " + x + ", y: " + y);
+	trace(Math.atan(Math.abs(y) / Math.abs(x)));
+
+	// If tapped middle, skip
+	if(x >= -35 && x <= 35 && y >= -35 && y <= 35){setDir("SKIP");return;}
+	if(x >= 0 && y >= 0) Math.abs(x) > Math.abs(y) ? setDir("East") : setDir("South");
+	if(x >= 0 && y <= 0) Math.abs(x) > Math.abs(y) ? setDir("East") : setDir("North");
+	if(x <= 0 && y >= 0) Math.abs(x) > Math.abs(y) ? setDir("West") : setDir("South");
+	if(x <= 0 && y <= 0) Math.abs(x) > Math.abs(y) ? setDir("West") : setDir("North");
+}
+//******************************************************************************************************
 // onKeyUp:
 // Keyboard Event handler
 //******************************************************************************************************
@@ -644,13 +664,25 @@ function onKeyUp(event) { // act on player input
 	if(player.hp < 1)return;
 	if(!npcPhase){
 		switch (event.keyCode) {
-			case Phaser.Keyboard.LEFT: npcPhase = moveTo(player, {x:-1, y:0}, "West"); break;
-			case Phaser.Keyboard.RIGHT: npcPhase = moveTo(player,{x:1, y:0}, "East"); break;
-			case Phaser.Keyboard.UP: npcPhase = moveTo(player, {x:0, y:-1}, "North"); break;
-			case Phaser.Keyboard.DOWN: npcPhase = moveTo(player, {x:0, y:1}, "South"); break;
-			case Phaser.Keyboard.SPACEBAR: npcPhase = true; break;
+			case Phaser.Keyboard.LEFT: setDir("West"); break;
+			case Phaser.Keyboard.RIGHT: setDir("East"); break;
+			case Phaser.Keyboard.UP: setDir("North"); break;
+			case Phaser.Keyboard.DOWN: setDir("South"); break;
+			case Phaser.Keyboard.SPACEBAR: setDir("SKIP"); break;
 		}
 }	}
+//******************************************************************************************************
+// setDir:
+// Queue up the next movement
+//******************************************************************************************************
+function setDir(e){
+	trace("setDir called with " + e);
+	if(e == "West")npcPhase = moveTo(player, {x:-1, y:0}, "West")
+	if(e == "East")npcPhase = moveTo(player,{x:1, y:0}, "East")
+	if(e == "North")npcPhase = moveTo(player, {x:0, y:-1}, "North")
+	if(e == "South")npcPhase = moveTo(player, {x:0, y:1}, "South")
+	if(e == "SKIP")npcPhase = true;
+}
 //******************************************************************************************************
 // aiAct:
 // Incredibly basic AI for the monsters, will need updating
@@ -680,8 +712,6 @@ function aiAct(actor) {
 
 	if (player.hp < 1) { // game over message
 		scribe('Well Done, you died. Hit Ctrl+r to restart.');
-		//var gameOver = game.add.text(playerDisplay.x, playerDisplay.y, 'Game Over\nCtrl+r to restart', { fill : '#e22', align: "center" } );
-		//gameOver.anchor.setTo(0.5,0.5);
 	}	
 }
 //******************************************************************************************************
