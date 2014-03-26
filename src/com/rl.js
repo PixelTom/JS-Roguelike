@@ -13,22 +13,18 @@ var TILESIZE = 64; var ROWS = 40; var COLS = 40;
 var vROWS = 9; var vCOLS = 13;
 var ACTORS = 10; // number of actors per level, including player, Future Plans: less static, more random
 var maps; // Array of map arrays
-var level; // What level the player is on
-var levels; // How many levels all up
+var level; var levels; 
 var mapObj;
-var player; // a list of all actors, 0 is the player
-var playerDisplay;
+var player; var playerDisplay;
 var playerCameraOffset;
-var actorDisplay;	
-var itemDisplay;
+var actorDisplay; var itemDisplay;
 var roomArray; // Holds the information for the rooms on the map
-var topDisplay;
-var topDisplayList;
+var topDisplay; var topDisplayList;
 var npcPhase = false;
-var scoreArray;
-var score = 0;
+var scoreArray; var score = 0;
 var aStarGraph;
 var transitionDirection = "START";
+var textGroup; var textGroupChildren = [];
 
 // initialize phaser, call create() once done
 var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phaser.AUTO, null, {
@@ -41,6 +37,7 @@ var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phas
 function onPreload() {
 	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
+	game.load.image("imgTextBox","lib/textBox.png");
 	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
 	loading.anchor.setTo(0.5,0.5);
 
@@ -123,8 +120,8 @@ function clearMap(){
 // If the map has been visited already, use existing data
 //******************************************************************************************************
 function buildMap(){
-	trace("level: " + level);
-	trace("maps.length: " + maps.length);
+	//trace("level: " + level);
+	//trace("maps.length: " + maps.length);
 	mapObj = maps[level];
 
 	if(mapObj.SCREEN == null){
@@ -170,13 +167,29 @@ function buildMap(){
 	}
 	
 	positionObjects();
-	trace("player: " + player);
-	trace("playerDisplay: " + playerDisplay);
+	//trace("player: " + player);
+	//trace("playerDisplay: " + playerDisplay);
 	drawMap();
 
 	for (var a in topDisplayList) {
 		if(topDisplayList[a] != null)topDisplayList[a].bringToTop();
 	}
+	if(textGroup != null)textGroup.destroy(true);
+	textGroup = new Phaser.Group(game);
+	textGroup.fixedToCamera = true;
+	textGroupChildren = [];
+	var img = game.add.image(0,512,"imgTextBox",0,textGroup);
+	img.alpha = 0.4;
+	// Look into drawing shapes
+	/*var tGraphic = game.add.graphics(0,0,textGroup);
+	var tPoly = new Phaser.Polygon([0,0,100,0,100,100,0,100]);
+	tGraphic.drawPolygon(tPoly);
+	tGraphic.fixedToCamera = true;*/
+	scribe(randomDescription('LEVEL'))
+	scribe("You are on sub level " + (level + 1));
+
+
+
 }
 //******************************************************************************************************
 // initTiles:
@@ -500,6 +513,8 @@ function drawTopBar() {
 	item = game.add.sprite(0,0,"dungeonSheet",12);
 	item.fixedToCamera = true;
 	item.cameraOffset = new Phaser.Point(680,0);
+	topDisplay.unshift(item);
+	topDisplayList.push(item);
 	
 	scoreArray = [];
 	for(var i = 0; i < 3; i++){
@@ -555,7 +570,7 @@ function canGo(actor,dir) {
 // moveTo:
 // Move the actor in the direction requested, if the tile is filled with another, engage hit code
 //******************************************************************************************************
-function moveTo(actor, dir) { // check if actor can move in the given direction
+function moveTo(actor, dir, dirTxt) { // check if actor can move in the given direction
 	if (!canGo(actor,dir)) 
 		return false;
 	var newKey = (actor.y + dir.y) +'_' + (actor.x + dir.x); // moves actor to the new location
@@ -563,9 +578,9 @@ function moveTo(actor, dir) { // check if actor can move in the given direction
 		if(mapObj.ACTOR_MAP[newKey] != player && actor != player)return true;
 		//decrement hitpoints of the actor at the destination tile
 		var victim = mapObj.ACTOR_MAP[newKey];
-		hitActor(actor, victim, dir, newKey);
+		hitActor(actor, victim, dir, newKey, dirTxt);
 	} else {
-		confirmMove(actor, dir);
+		confirmMove(actor, dir, dirTxt);
 	}
 	return true;
 }
@@ -573,7 +588,7 @@ function moveTo(actor, dir) { // check if actor can move in the given direction
 // hitActor:
 // determine action after 2 actors collide
 //******************************************************************************************************
-function hitActor(attacker, victim, dir, newKey) {
+function hitActor(attacker, victim, dir, newKey, dirTxt) {
 	victim.hp--;
 	if(victim == player){
 		for(var id in topDisplay){
@@ -583,12 +598,6 @@ function hitActor(attacker, victim, dir, newKey) {
 				var pos = [heart.x, heart.y];
 				heart.FULL = false;
 				heart.animations.frame = 6;
-				//heart.kill();
-				//heart = game.add.sprite(pos[0],pos[1],"dungeonSheet",6);
-				//heart.fixedToCamera = true;
-				//heart.cameraOffset = point;
-				//heart.FULL = false;
-				//topDisplay[id] = heart;
 				break;
 	}	}	}
 	// if it's dead remove its reference 
@@ -603,13 +612,13 @@ function hitActor(attacker, victim, dir, newKey) {
 				victory.anchor.setTo(0.5,0.5);
 			}	
 		}*/
-		confirmMove(attacker, dir);
+		confirmMove(attacker, dir, dirTxt);
 }	}
 //******************************************************************************************************
 // confirmMove:
 // after validation, update actors destination upon update
 //******************************************************************************************************
-function confirmMove(actor, dir){
+function confirmMove(actor, dir, dirTxt){
 	// remove reference to the actor's old position
 	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]= null;
 	// update position
@@ -617,19 +626,21 @@ function confirmMove(actor, dir){
 	actor.x+=dir.x;
 	// add reference to the actor's new position
 	mapObj.ACTOR_MAP[actor.y + '_' + actor.x]=actor;
+	if(actor == player && dirTxt != null)scribe('You move ' + dirTxt);
 }
 //******************************************************************************************************
 // onKeyUp:
 // Keyboard Event handler
 //******************************************************************************************************
 function onKeyUp(event) { // act on player input
+	if(player == null) return;
 	if(player.hp < 1)return;
 	if(!npcPhase){
 		switch (event.keyCode) {
-			case Phaser.Keyboard.LEFT: npcPhase = moveTo(player, {x:-1, y:0}); break;
-			case Phaser.Keyboard.RIGHT: npcPhase = moveTo(player,{x:1, y:0}); break;
-			case Phaser.Keyboard.UP: npcPhase = moveTo(player, {x:0, y:-1}); break;
-			case Phaser.Keyboard.DOWN: npcPhase = moveTo(player, {x:0, y:1}); break;
+			case Phaser.Keyboard.LEFT: npcPhase = moveTo(player, {x:-1, y:0}, "West"); break;
+			case Phaser.Keyboard.RIGHT: npcPhase = moveTo(player,{x:1, y:0}, "East"); break;
+			case Phaser.Keyboard.UP: npcPhase = moveTo(player, {x:0, y:-1}, "North"); break;
+			case Phaser.Keyboard.DOWN: npcPhase = moveTo(player, {x:0, y:1}, "South"); break;
 			case Phaser.Keyboard.SPACEBAR: npcPhase = true; break;
 		}
 }	}
@@ -741,11 +752,58 @@ function grabCoin(){
 	}
 }
 //******************************************************************************************************
+// scribe:
+// write text to the flavour text box
+//******************************************************************************************************
+function scribe(e){
+	var tText = game.add.text(5,518,e,{fill:'#fff', align:"left", font:'11pt Arial'}, textGroup);
+	textGroupChildren.unshift(tText);
+	for(var a in textGroupChildren)textGroupChildren[a].y = 518 + (19 * a);
+	while(textGroupChildren.length > 6){
+		var tTxt = textGroupChildren.pop();
+		tTxt.destroy();
+	}
+}
+//******************************************************************************************************
 // trace:
 // pushes all trace calls to the console log, comment out the line upon release
 //******************************************************************************************************
 function trace(e){
 	console.log(e);
+}
+//******************************************************************************************************
+// randomDescription:
+// for flavour
+//******************************************************************************************************
+function randomDescription(type){
+	var options = [''];
+	switch(type){
+		case 'LEVEL':
+			switch(rn(1,20))
+			{
+				case 1: return 'The air smells of bananas and disappointment.'; break;
+				case 2: return 'You think you left the oven on at home.'; break;
+				case 3: return "What is that sme.. oh it's you."; break;
+				case 4: return 'Seems legit.'; break;
+				case 5: return 'A dampness can be felt in your loins.'; break;
+				case 6: return 'One time I saw a man punch a horse.'; break;
+				case 7: return 'The stench of failure permeates through the walls.'; break;
+				case 8: return 'This is not where you parked your car.'; break;
+				case 9: return 'Those shoes do not match that purse.'; break;
+				case 10: return 'You wander what your purpose is in life.'; break;
+				case 11: return "You finally understand Rob Schneider's appeal"; break;
+				case 12: return "Just admit it, you're lost"; break;
+				case 13: return 'The orange tiles are walls not lava.'; break;
+				case 14: return "I don't know what the mushrooms do."; break;
+				case 15: return 'The googles do nothing.'; break;
+				case 16: return 'Someone had been here recently.. and farted.'; break;
+				case 17: return "You're wearing a helmet but no pants."; break;
+				case 18: return 'Is someone cooking bacon?'; break;
+				case 19: return 'Fun Fact: N/A'; break;
+				case 20: return 'A foul beast lurks beyond yonder.. or some shit.'; break;
+			}
+		break;
+	}
 }
 //******************************************************************************************************
 // aStar and graph code
