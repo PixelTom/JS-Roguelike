@@ -25,6 +25,7 @@ var scoreArray; var score = 0;
 var aStarGraph;
 var transitionDirection = "START";
 var textGroup; var textGroupChildren = [];
+var endText; var endButton; var gameOver = false;
 
 // initialize phaser, call create() once done
 var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phaser.AUTO, null, {
@@ -38,6 +39,7 @@ function onPreload() {
 	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
 	game.load.image("imgTextBox","lib/textBox.png");
+	game.load.image('tick', 'lib/yesButton.png');
 	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
 	loading.anchor.setTo(0.5,0.5);
 
@@ -641,6 +643,7 @@ function confirmMove(actor, dir, dirTxt){
 // Tap handler
 //******************************************************************************************************
 function onTap(e){
+	if(gameOver)return;
 	//trace(e.positionDown);
 	// Make a false 0,0 in the middle
 	var x = e.positionDown.x - (832 / 2);
@@ -711,8 +714,16 @@ function aiAct(actor) {
 	}
 
 	if (player.hp < 1) { // game over message
-		scribe('Well Done, you died. Hit Ctrl+r to restart.');
+		gameOver = true;
+		scribe('Well Done, you died.');
+		endText = game.add.text(playerDisplay.x + 10, playerDisplay.y - 120, 'Play Again?', { fontSize: '32px', fill: '#000' });
+		endButton = game.add.button(playerDisplay.x, playerDisplay.y, 'tick', resetGame, this, 2, 1, 0);
+		endButton.scale.setTo(0.5,0.5);
+		endButton.anchor.setTo(-0.1,0.5);
 	}	
+}
+function resetGame(){
+	window.location.reload(false); 
 }
 //******************************************************************************************************
 // genRoom:
