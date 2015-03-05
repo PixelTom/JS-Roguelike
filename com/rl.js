@@ -1,7 +1,6 @@
 /***************************************************************************************
-JAVASCRIPT ROGUELIKE
+JAVASCRIPT PICROSS ENGINE
 Author: Thomas Gattenhof
-Employer: 3rd Sense Australia
 
 About: This is my first jump into the HTML5 world, with shift towards more HTML5
 projects in our sector I feel we need to skill up on Javascript in order to have
@@ -28,7 +27,7 @@ var textGroup; var textGroupChildren = [];
 var endText; var endButton; var gameOver = false;
 
 // initialize phaser, call create() once done
-var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phaser.AUTO, null, {
+var game = new Phaser.Game(640, 960, Phaser.AUTO, null, {
 	preload:onPreload, create: create, update:onUpdate
 });
 //******************************************************************************************************
@@ -36,10 +35,12 @@ var game = new Phaser.Game(vCOLS * TILESIZE, (vROWS * TILESIZE) + TILESIZE, Phas
 // Preloader, called by Phaser Framework
 //******************************************************************************************************
 function onPreload() {
-	game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
+    console.log('=====================================================================================');
+    game.load.image('tick', 'lib/yesButton.png');
+    game.load.text('puzzle1','lib/puzzles/1.json');
+	/*game.load.spritesheet("dungeonSheet","lib/ss001.png",64,64);
 	game.load.spritesheet("numberSheet","lib/ss002.png",40,40);
 	game.load.image("imgTextBox","lib/textBox.png");
-	game.load.image('tick', 'lib/yesButton.png');
 	var loading = game.add.text(game.width / 2, game.height / 2, 'Building world...', { fill : '#fff', align: "center" });
 	loading.anchor.setTo(0.5,0.5);
 
@@ -57,14 +58,14 @@ function onPreload() {
 		if(tMap.length > 0){
 			maps.push({MAP:tMap, ITEM_LIST:null, ITEM_MAP:null, SCREEN:null, OVERLAY:null, ACTOR_LIST:null, ACTOR_MAP:null, ROOM_ARRAY:roomArray});
 		}
-	}
+	}*/
 }
 //******************************************************************************************************
 // onUpdate:
 // Called once per frame by the Phaser framework
 //******************************************************************************************************
 function onUpdate()	{	
-	if(npcPhase){
+	/*if(npcPhase){
 		for (var a = 1; a < mapObj.ACTOR_LIST.length; a++) {
 			var enemy = mapObj.ACTOR_LIST[a];
 			if(enemy && player.hp > 0)aiAct(enemy);
@@ -77,19 +78,40 @@ function onUpdate()	{
 			drawMap();
 		}
 		npcPhase = false;
-	}
+	}*/
 }
 //******************************************************************************************************
 // create:
 // Called by the Phaser framework upon preload
 //******************************************************************************************************
 function create() {
-	drawTopBar(); // draw UI top bar
+	/*drawTopBar(); // draw UI top bar
 	buildMap();
 
 	playerCameraOffset = game.add.sprite(playerDisplay.x + 32,playerDisplay.y, "dungeonSheet", 11);
 	playerCameraOffset.visible = false;
-	game.camera.follow(playerCameraOffset);
+	game.camera.follow(playerCameraOffset);*/
+    
+    var pJson = JSON.parse(game.cache.getText('puzzle1'));
+    game.JSON = pJson;
+    game.utils = new PixelTom.Utils(game);
+    game.control = new Picross.Control(game);
+    
+    this.background = game.add.graphics(0,0);
+    this.background.lineStyle(2,0x000000,10);
+    this.background.beginFill(0xFFFFFF, 10);
+    this.background.drawRect(0, 0, game.width, game.height);
+    this.background.endFill();
+    
+    this.tileGroup = new Picross.Grid(game);
+    this.tileGroup.loadGrid(game.JSON.puzzle.WIDTH, game.JSON.puzzle.HEIGHT);
+    
+    this.bucketGroup = new Picross.BucketGroup(game, pJson.puzzle.COLOURS);
+    
+    //this.add.existing(testTile);
+    
+    //this.tileGroup.add.existing(testTile);
+    //this.tileGroup.x = 200;
 }
 //******************************************************************************************************
 // clearMap:

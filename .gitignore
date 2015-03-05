@@ -1,9 +1,7 @@
 # First, ignore everything
 assets/*
 progress/*
-com/*
 mongoose.exe
 # Now, whitelist anything that's a directory
 # And all the file types you're interested in.
 !*.js
-!src/com/README.txt
